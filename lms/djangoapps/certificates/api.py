@@ -1,8 +1,10 @@
-"""Certificates API
+"""
+Certificates API
 
-This is a Python API for generating certificates asynchronously.
-Other Django apps should use the API functions defined in this module
-rather than importing Django models directly.
+This provides APIs for generating course certificates asynchronously.
+
+Other Django apps should use the API functions defined here in this module; other apps should not import the
+certificates models or any other certificates modules.
 """
 
 
@@ -16,8 +18,11 @@ from eventtracking import tracker
 from opaque_keys.edx.django.models import CourseKeyField
 from opaque_keys.edx.keys import CourseKey
 from organizations.api import get_course_organization_id
+from xmodule.modulestore.django import modulestore
 
 from lms.djangoapps.branding import api as branding_api
+from lms.djangoapps.certificates.generation import \
+    generate_allowlist_certificate_task as _generate_allowlist_certificate_task
 from lms.djangoapps.certificates.models import (
     CertificateGenerationConfiguration,
     CertificateGenerationCourseSetting,
@@ -33,7 +38,6 @@ from lms.djangoapps.certificates.queue import XQueueCertInterface
 from lms.djangoapps.instructor.access import list_with_level
 from openedx.core.djangoapps.certificates.api import certificates_viewable_for_course
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from xmodule.modulestore.django import modulestore
 
 log = logging.getLogger("edx.certificate")
 MODES = GeneratedCertificate.MODES
@@ -229,7 +233,7 @@ def generate_user_certificates(student, course_key, course=None, insecure=False,
     log.info(message.format(user=student.id, course=course_key))
 
     # If cert_status is not present in certificate valid_statuses (for example unverified) then
-    # add_cert returns None and raises AttributeError while accesing cert attributes.
+    # add_cert returns None and raises AttributeError while accessing cert attributes.
     if cert is None:
         return
 
@@ -356,7 +360,7 @@ def set_cert_generation_enabled(course_key, is_enabled):
             certificates for this course.
 
     """
-    CertificateGenerationCourseSetting.set_self_generatation_enabled_for_course(course_key, is_enabled)
+    CertificateGenerationCourseSetting.set_self_generation_enabled_for_course(course_key, is_enabled)
     cert_event_type = 'enabled' if is_enabled else 'disabled'
     event_name = '.'.join(['edx', 'certificate', 'generation', cert_event_type])
     tracker.emit(event_name, {
@@ -707,3 +711,11 @@ def get_certificate_footer_context():
         data.update({'company_about_url': about})
 
     return data
+
+
+def generate_allowlist_certificate(user, course_key):
+    """
+    Generate (create if it doesn't already exist, or update if it does exist) an allowlist certificate for this user,
+    in this course run.
+    """
+    return _generate_allowlist_certificate_task(user, course_key)
