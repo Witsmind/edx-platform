@@ -92,6 +92,3 @@ def _generate_certificate(user, course_id):
                                                                                         course=cert.course_id
                                                                                         ))
     return cert
-
-
-
