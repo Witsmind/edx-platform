@@ -11,8 +11,10 @@ from six import text_type
 
 from edx_proctoring.api import create_exam
 from edx_proctoring.backends.tests.test_backend import TestBackendProvider
+from edx_toggles.toggles.testutils import override_waffle_flag
 from common.djangoapps.student.roles import CourseInstructorRole, CourseStaffRole
 from common.djangoapps.student.tests.factories import AdminFactory
+from lms.djangoapps.courseware.toggles import COURSEWARE_PROCTORING_IMPROVEMENTS
 from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory
 
@@ -176,6 +178,23 @@ class TestProctoringDashboardViews(SharedModuleStoreTestCase):
         self.instructor.is_staff = True
         self.instructor.save()
         self._assert_escalation_email_available(True)
+
+    def test_proctoring_improvements_toggle(self):
+        """
+        The value of the feature toggle COURSEWARE_PROCTORING_IMPROVEMENTS should be included in the response
+        via the data-enable-proctoring-improvements data attribute.
+        """
+        self.setup_course(True, True)
+        self.instructor.is_staff = True
+        self.instructor.save()
+
+        with override_waffle_flag(COURSEWARE_PROCTORING_IMPROVEMENTS, True):
+            response = self.client.get(self.url)
+            self.assertIn('data-enable-proctoring-improvements="True"', response.content.decode('utf-8'))
+
+        with override_waffle_flag(COURSEWARE_PROCTORING_IMPROVEMENTS, False):
+            response = self.client.get(self.url)
+            self.assertIn('data-enable-proctoring-improvements="False"', response.content.decode('utf-8'))
 
     def test_review_dashboard(self):
         """
